@@ -336,13 +336,15 @@ def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cut
     
     zbins = np.arange(0, 2*vacuum+H+dx, dx)
     elec = np.zeros_like(zbins)
+
+    beta = 1/(const.k * temp)
     
     # LJ_wall_93(z_range, z_wall, epsilon, sigma, cutoff, place='lo')
     Vext_X = LJ_wall_93(zbins, vacuum, epsilon_X, sigma_X, cutoff, 'lo') + LJ_wall_93(zbins, vacuum+H, epsilon_X, sigma_X, cutoff, 'hi')
     Vext_C = LJ_wall_93(zbins, vacuum, epsilon_C, sigma_C, cutoff, 'lo') + LJ_wall_93(zbins, vacuum+H, epsilon_C, sigma_C, cutoff, 'hi')
 
-    muloc_X = -Vext_X + muX
-    muloc_C = -Vext_C + muC
+    muloc_X = (-Vext_X + muX) * beta
+    muloc_C = (-Vext_C + muC) * beta
 
     metadata = {
         'muX': muX,
