@@ -161,7 +161,7 @@ alpha_updates_default= {
     5000: 0.1,
 }
 
-def minimise_SR_twotype(model_H, model_O, zbins, muloc_H, muloc_O, elec, temp, initial_guess,
+def minimise_SR_twotype(model_H, model_O, zbins, betamuloc_H, betamuloc_O, elec, temp, initial_guess,
                         plot=True, maxiter=100000, alpha_initial=0.00001, 
                         alpha_updates=None,
                         print_every=500, plot_every=500, tolerance=1e-5):
@@ -201,8 +201,8 @@ def minimise_SR_twotype(model_H, model_O, zbins, muloc_H, muloc_O, elec, temp, i
     # setting up grid
     rho_H_new = np.zeros_like(zbins)
     rho_O_new = np.zeros_like(zbins)
-    validH = np.isfinite(muloc_H) 
-    validO = np.isfinite(muloc_O)
+    validH = np.isfinite(betamuloc_H) 
+    validO = np.isfinite(betamuloc_O)
     rho_H = initial_guess * np.ones_like(zbins)
     rho_O = initial_guess * np.ones_like(zbins)
     log_rho_H_new = np.zeros_like(zbins)
@@ -234,11 +234,11 @@ def minimise_SR_twotype(model_H, model_O, zbins, muloc_H, muloc_O, elec, temp, i
         c1_H_pred, c1_O_pred = get_c1(model_H, model_O, rho_H, rho_O, elec, {"T": temp})
         
         if plot and i % plot_every == 0:
-            plot_interactive_SR_twotype(fig, ax, zbins, rho_H, rho_O, muloc_H, muloc_O, color_count)
+            plot_interactive_SR_twotype(fig, ax, zbins, rho_H, rho_O, betamuloc_H, betamuloc_O, color_count)
             color_count += 1
         # update density
-        log_rho_H_new[validH] = muloc_H[validH]  + c1_H_pred[validH] - np.log(1/(temp**1.5))
-        log_rho_O_new[validO] = muloc_O[validO]  + c1_O_pred[validO] - np.log(1/(temp**1.5))
+        log_rho_H_new[validH] = betamuloc_H[validH]  + c1_H_pred[validH] - np.log(1/(temp**1.5))
+        log_rho_O_new[validO] = betamuloc_O[validO]  + c1_O_pred[validO] - np.log(1/(temp**1.5))
         log_rho_H_new[~validH] = -np.inf
         log_rho_O_new[~validO] = -np.inf
         rho_H_new = np.exp(log_rho_H_new)
@@ -263,7 +263,7 @@ def minimise_SR_twotype(model_H, model_O, zbins, muloc_H, muloc_O, elec, temp, i
         if delta < tolerance:
             print(f"Converged after {i} iterations (delta = {delta})")
             if plot:
-                plot_end_SR_twotype(zbins, rho_H, rho_O, muloc_H, muloc_O, ax)
+                plot_end_SR_twotype(zbins, rho_H, rho_O, betamuloc_H, betamuloc_O, ax)
             return zbins, rho_H, rho_O
         
     print(f"Not converged after {maxiter} iterations (delta = {delta})")
@@ -376,14 +376,7 @@ def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cut
     return zs, rho_X, rho_C
 
 
-### unit conversions
-angstrom_to_metre = 1e-10
-
-###
-
-
-temperatures = [200]#, 250, 300, 310, 320, 350, 400]
-slit_lengths = [20]
+################################
 
 results_path = './slit_data'
 plot_path = './slit_plots'
@@ -391,28 +384,29 @@ plot_path = './slit_plots'
 modelC_path = "/scratch/fb590/co2-n2/models/c1_C.keras"
 modelX_path = "/scratch/fb590/co2-n2/models/c1_X.keras"
 
-dx = 0.02 
+dx = 0.02
 
-muX = -5
-muC = -5
+temperatures = [200, 250, 300, 310, 320, 350, 400]
+slit_lengths = [10, 15, 20, 25, 30, 35, 50, 75, 100]
 
-initial_guess = 0.01 
+mu_range_CO2_kelvin = [-2500, -2150, -1800, -1450, -1100, -750]
+mu_range_CO2_joules = [x * const.k for x in mu_range_CO2_kelvin]
 
-epsilon_X = 0.1
-epsilon_C = 0.2
+mu_range_N2_kelvin = [-2250, -1900, -1550, -1200, -850, -500]
+mu_range_N2_joules = [x * const.k for x in mu_range_N2_kelvin]
+
+epsilon_X = 1000 * const.Avogadro
+epsilon_C = 1000 * const.Avogadro
 
 sigma_X = 1.0
 sigma_C = 1.0
 cutoff = 5.0
 
-plot = True
-
 vacuum = 10
 
-# kB  = 1.38064852e-23
-# angtrom3_to_m3 = 1e30
-# pa_to_atm = 101325
+plot = True
 
+initial_guess = 0.01 
 
 for T in temperatures:
     for H in lengths:
