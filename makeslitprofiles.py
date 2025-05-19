@@ -22,15 +22,12 @@ def lighten_colors(colors, amount=0.5):
     white = np.ones(3)
     return colors[:, :3] * (1 - amount) + white * amount
 
-# Generate original colors
 colours_X = cm.vanimo(np.linspace(0, 0.49, num_colors))
 colours_C = cm.vanimo(np.linspace(1, 0.51, num_colors))
 
-# Lighten them
 light_colours_X = lighten_colors(colours_X, amount=0.4)
 light_colours_C = lighten_colors(colours_C, amount=0.4)
 
-# Repeat as before
 color_cycle_X = np.tile(light_colours_X, (int(np.ceil(1000000 / num_colors)), 1))[:1000000]
 color_cycle_C = np.tile(light_colours_C, (int(np.ceil(1000000 / num_colors)), 1))[:1000000]
 
@@ -92,7 +89,6 @@ def plot_end_SR_twotype(zbins, rhoH, rhoO, mulocH, mulocO, ax):
     ax[1].legend(handles=[line_H, line_O])
 
 #######
-
 
 @keras.utils.register_keras_serializable()
 class GradientLayer(keras.layers.Layer):
@@ -320,19 +316,16 @@ def write_profile(filename, centers, densities_X, densities_C, metadata=None):
         for center, density_X, density_C in zip(centers, densities_X, densities_C):
             writer.writerow([f"{center:.4f}", f"{density_X:.20f}", f"{density_C:.20f}"])
     
+def generate_ID(number):
+    return f"{number:04d}"
 
-def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cutoff, temp, modelX_path, modelC_path, results_path, plot_path, initial_guess,dx, H, plot, vacuum):
-
-    model_X = keras.models.load_model(modelX_path)
-    model_C = keras.models.load_model(modelC_path)
+def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cutoff, temp, model_X, model_C, results_path, plot_path, ID, initial_guess,dx, H, plot, vacuum):
 
     os.makedirs(results_path, exist_ok=True)
     os.makedirs(plot_path, exist_ok=True)
     
-    #plotfile = f'{plot_path}/slit_muX{muX}_muC{muC}_epsX{epsilon_X}_epsC{epsilon_C}_sigX_{sigma_X}_sigC{sigma_C}_T{T}_H{H}.png'
-    #output_file = f'{results_path}/slit_muX{muX}_muC{muC}_epsX{epsilon_X}_epsC{epsilon_C}_sigX_{sigma_X}_sigC{sigma_C}_{T}_H{H}.out'
-    output_file = f"{results_path}/123.out"
-    plotfile = f'{plot_path}/123.png'
+    output_file = f"{results_path}/slit_{ID}.out"
+    plotfile = f'{plot_path}/slit_{ID}.png'
     
     zbins = np.arange(0, 2*vacuum+H+dx, dx)
     elec = np.zeros_like(zbins)
@@ -361,9 +354,9 @@ def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cut
         'zmin': zbins[0],
         'zmax': zbins[-1],
         'num_bins': len(zbins),
-        'H': H
-        'vacuum': vacuum
-        'box_size': H + 2 * vacuum
+        'H': H,
+        'vacuum': vacuum,
+        'box_size': H + 2 * vacuum,
         'initial_guess': initial_guess
     }
 
@@ -380,19 +373,33 @@ def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cut
 
 results_path = './slit_data'
 plot_path = './slit_plots'
+index_path = os.path.join(results_path, "index.csv")
+
+if not os.path.exists(index_path):
+    with open(index_path, mode='w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "filename", "muX", "muC", "epsilon_X", "epsilon_C",
+            "sigma_X", "sigma_C", "T", "H", "dx", "zmin", "zmax", "num_bins"
+        ])
+
 
 modelC_path = "/scratch/fb590/co2-n2/models/c1_C.keras"
 modelX_path = "/scratch/fb590/co2-n2/models/c1_X.keras"
 
+model_X = keras.models.load_model(modelX_path)
+model_C = keras.models.load_model(modelC_path)
+
+
 dx = 0.02
 
-temperatures = [200, 250, 300, 310, 320, 350, 400]
-slit_lengths = [10, 15, 20, 25, 30, 35, 50, 75, 100]
+temperatures = [200]#, 250, 300, 310, 320, 350, 400]
+slit_lengths = [10, 15, 20]# 25, 30, 35, 50, 75, 100]
 
-mu_range_CO2_kelvin = [-2500, -2150, -1800, -1450, -1100, -750]
+mu_range_CO2_kelvin = [-2500]#, -2150, -1800, -1450, -1100, -750]
 mu_range_CO2_joules = [x * const.k for x in mu_range_CO2_kelvin]
 
-mu_range_N2_kelvin = [-2250, -1900, -1550, -1200, -850, -500]
+mu_range_N2_kelvin = [-2250]#, -1900, -1550, -1200, -850, -500]
 mu_range_N2_joules = [x * const.k for x in mu_range_N2_kelvin]
 
 epsilon_X = 1000 * const.Avogadro
@@ -404,20 +411,37 @@ cutoff = 5.0
 
 vacuum = 10
 
-plot = True
+plot = False
 
-initial_guess = 0.01 
+initial_guess = 0.01
+
+number = 1
 
 for T in temperatures:
-    for H in lengths:
-        z_range, rho_X, rho_C = calculate_slit_profile(
-            muX, muC,
-            epsilon_X, epsilon_C,
-            sigma_X, sigma_C, cutoff,
-            T,
-            modelX_path, modelC_path,
-            results_path, plot_path,
-            initial_guess,
-            dx, H,
-            plot, vacuum
-        )
+    for H in slit_lengths:
+        for muX in mu_range_N2_joules:
+            for muC in mu_range_CO2_joules:
+
+                ID = generate_ID(number)
+                print(f"Running slit_{ID}")
+
+                try:
+                    z_range, rho_X, rho_C = calculate_slit_profile(
+                        muX, muC,
+                        epsilon_X, epsilon_C,
+                        sigma_X, sigma_C, cutoff,
+                        T,
+                        model_X, model_C,
+                        results_path, plot_path, ID,
+                        initial_guess,
+                        dx, H,
+                        plot, vacuum
+                    )
+                    # append to index file
+                    with open(index_path, "a") as f:
+                        f.write(f"{ID}\tT={T:.2f}K\tH={H:.2f}nm\tmu_N2={muX:.4e}J\tmu_CO2={muC:.4e}J\n")
+
+                except Exception as e:
+                    print(f"{e}")
+
+                number += 1

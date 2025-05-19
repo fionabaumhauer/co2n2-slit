@@ -1,0 +1,7 @@
+filename,muX,muC,epsilon_X,epsilon_C,sigma_X,sigma_C,T,H,dx,zmin,zmax,num_bins
+0001	T=200.00K	H=10.00nm	mu_N2=-3.1065e-20J	mu_CO2=-3.4516e-20J
+0002	T=200.00K	H=15.00nm	mu_N2=-3.1065e-20J	mu_CO2=-3.4516e-20J
+0003	T=200.00K	H=20.00nm	mu_N2=-3.1065e-20J	mu_CO2=-3.4516e-20J
+0001	T=200.00K	H=10.00nm	mu_N2=-3.1065e-20J	mu_CO2=-3.4516e-20J
+0002	T=200.00K	H=15.00nm	mu_N2=-3.1065e-20J	mu_CO2=-3.4516e-20J
+0003	T=200.00K	H=20.00nm	mu_N2=-3.1065e-20J	mu_CO2=-3.4516e-20J
