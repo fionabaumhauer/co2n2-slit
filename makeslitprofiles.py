@@ -319,7 +319,7 @@ def write_profile(filename, centers, densities_X, densities_C, metadata=None):
 def generate_ID(number):
     return f"{number:04d}"
 
-def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cutoff, temp, model_X, model_C, results_path, plot_path, ID, initial_guess,dx, H, plot, vacuum):
+def calculate_slit_profile(muX_kelvin, muC_kelvin, epsilon_X_kJpermol, epsilon_C_kJpermol, sigma_X, sigma_C, cutoff, temp, model_X, model_C, results_path, plot_path, ID, initial_guess,dx, H, plot, vacuum):
 
     os.makedirs(results_path, exist_ok=True)
     os.makedirs(plot_path, exist_ok=True)
@@ -330,25 +330,28 @@ def calculate_slit_profile(muX, muC, epsilon_X, epsilon_C, sigma_X, sigma_C, cut
     zbins = np.arange(0, 2*vacuum+H+dx, dx)
     elec = np.zeros_like(zbins)
 
-    beta = 1/(const.k * temp)
+    muX_joules = muX_kelvin * const.k
+    muC_joules = muC_kelvin * const.k
+    epsilon_X_joule = epsilon_X_kJpermol * const.Avogadro
+    epsilon_C_joule = epsilon_C_kJpermol * const.Avogadro
     
-    # LJ_wall_93(z_range, z_wall, epsilon, sigma, cutoff, place='lo')
-    Vext_X = LJ_wall_93(zbins, vacuum, epsilon_X, sigma_X, cutoff, 'lo') + LJ_wall_93(zbins, vacuum+H, epsilon_X, sigma_X, cutoff, 'hi')
-    Vext_C = LJ_wall_93(zbins, vacuum, epsilon_C, sigma_C, cutoff, 'lo') + LJ_wall_93(zbins, vacuum+H, epsilon_C, sigma_C, cutoff, 'hi')
+    beta = 1/(const.k * temp)
+    Vext_X = LJ_wall_93(zbins, vacuum, epsilon_X_joule, sigma_X, cutoff, 'lo') + LJ_wall_93(zbins, vacuum+H, epsilon_X_joule, sigma_X, cutoff, 'hi')
+    Vext_C = LJ_wall_93(zbins, vacuum, epsilon_C_joule, sigma_C, cutoff, 'lo') + LJ_wall_93(zbins, vacuum+H, epsilon_C_joule, sigma_C, cutoff, 'hi')
 
-    muloc_X = (-Vext_X + muX) * beta
-    muloc_C = (-Vext_C + muC) * beta
+    muloc_X = (-Vext_X + muX_joules) * beta
+    muloc_C = (-Vext_C + muC_joules) * beta
 
     metadata = {
-        'muX': muX,
-        'muC': muC,
-        'epsilon_X': epsilon_X,
-        'epsilon_C': epsilon_C,
+        'muX': muX_kelvin,
+        'muC': muC_kelvin,
+        'epsilon_X': epsilon_X_kJpermol,
+        'epsilon_C': epsilon_C_kJpermol,
         'sigma_X': sigma_X,
         'sigma_C': sigma_C,
         'cutoff': cutoff,
-        'temperature': temp,
-        'modelX_path': modelX_path,
+        'T': temp,
+        'modelX_path': modelX_path, #note: das ist irgendwie unelegant geloest und funktioniert nur, weil ich ausserhalb der Funktion modelX_path definiert habe, so take care when using this function in a different script 
         'modelC_path': modelC_path,
         'dx': dx,
         'zmin': zbins[0],
@@ -375,35 +378,22 @@ results_path = './slit_data'
 plot_path = './slit_plots'
 index_path = os.path.join(results_path, "index.csv")
 
-if not os.path.exists(index_path):
-    with open(index_path, mode='w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "filename", "muX", "muC", "epsilon_X", "epsilon_C",
-            "sigma_X", "sigma_C", "T", "H", "dx", "zmin", "zmax", "num_bins"
-        ])
-
-
 modelC_path = "/scratch/fb590/co2-n2/models/c1_C.keras"
 modelX_path = "/scratch/fb590/co2-n2/models/c1_X.keras"
 
 model_X = keras.models.load_model(modelX_path)
 model_C = keras.models.load_model(modelC_path)
 
-
 dx = 0.02
 
-temperatures = [200]#, 250, 300, 310, 320, 350, 400]
-slit_lengths = [10, 15, 20]# 25, 30, 35, 50, 75, 100]
+temperatures = [200,250, 250, 300, 310, 320, 350, 400]
+slit_lengths = [10, 15, 20, 25, 30, 35, 50, 75, 100]
 
-mu_range_CO2_kelvin = [-2500]#, -2150, -1800, -1450, -1100, -750]
-mu_range_CO2_joules = [x * const.k for x in mu_range_CO2_kelvin]
+mu_range_CO2_kelvin = [-1800, -2150, -1800, -1450, -1100, -750]
+mu_range_N2_kelvin = [-2250, -1900, -1550, -1200, -850, -500]
 
-mu_range_N2_kelvin = [-2250]#, -1900, -1550, -1200, -850, -500]
-mu_range_N2_joules = [x * const.k for x in mu_range_N2_kelvin]
-
-epsilon_X = 1000 * const.Avogadro
-epsilon_C = 1000 * const.Avogadro
+epsilon_X_kJpermol = 1000
+epsilon_C_kJpermol = 1000
 
 sigma_X = 1.0
 sigma_C = 1.0
@@ -415,20 +405,28 @@ plot = False
 
 initial_guess = 0.01
 
-number = 1
+#make index file
+if not os.path.exists(index_path):
+    with open(index_path, mode='w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "filename","T", "H","muX", "muC", "epsilon_X", "epsilon_C",
+            "sigma_X", "sigma_C", "dx", "vacuum","initial_guess"
+        ])
 
+# loop over all parameters
+number = 1
 for T in temperatures:
     for H in slit_lengths:
-        for muX in mu_range_N2_joules:
-            for muC in mu_range_CO2_joules:
+        for muX_kelvin in mu_range_N2_kelvin:
+            for muC_kelvin in mu_range_CO2_kelvin:
 
                 ID = generate_ID(number)
                 print(f"Running slit_{ID}")
 
-                try:
-                    z_range, rho_X, rho_C = calculate_slit_profile(
-                        muX, muC,
-                        epsilon_X, epsilon_C,
+                calculate_slit_profile(
+                        muX_kelvin, muC_kelvin,
+                        epsilon_X_kJpermol, epsilon_C_kJpermol,
                         sigma_X, sigma_C, cutoff,
                         T,
                         model_X, model_C,
@@ -437,11 +435,10 @@ for T in temperatures:
                         dx, H,
                         plot, vacuum
                     )
-                    # append to index file
-                    with open(index_path, "a") as f:
-                        f.write(f"{ID}\tT={T:.2f}K\tH={H:.2f}nm\tmu_N2={muX:.4e}J\tmu_CO2={muC:.4e}J\n")
 
-                except Exception as e:
-                    print(f"{e}")
+                # append to index file
+                with open(index_path, "a", newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([ID,T,H,muX_kelvin,muC_kelvin,epsilon_X_kJpermol,epsilon_C_kJpermol,sigma_X,sigma_C,dx,vacuum,initial_guess])
 
                 number += 1
