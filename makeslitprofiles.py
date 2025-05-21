@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 from scipy.integrate import simpson
 from cmcrameri import cm 
 from IPython import display
+from datetime import datetime
 
 tf.config.experimental.enable_tensor_float_32_execution(False)
 
@@ -332,8 +333,8 @@ def calculate_slit_profile(muX_kelvin, muC_kelvin, epsilon_X_kJpermol, epsilon_C
 
     muX_joules = muX_kelvin * const.k
     muC_joules = muC_kelvin * const.k
-    epsilon_X_joule = epsilon_X_kJpermol * const.Avogadro
-    epsilon_C_joule = epsilon_C_kJpermol * const.Avogadro
+    epsilon_X_joule = epsilon_X_kJpermol * 1000 / const.Avogadro
+    epsilon_C_joule = epsilon_C_kJpermol * 1000 / const.Avogadro
     
     beta = 1/(const.k * temp)
     Vext_X = LJ_wall_93(zbins, vacuum, epsilon_X_joule, sigma_X, cutoff, 'lo') + LJ_wall_93(zbins, vacuum+H, epsilon_X_joule, sigma_X, cutoff, 'hi')
@@ -420,9 +421,14 @@ for T in temperatures:
     for H in slit_lengths:
         for muX_kelvin in mu_range_N2_kelvin:
             for muC_kelvin in mu_range_CO2_kelvin:
+                if number == 1:
+                    print("Current time:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    total_calculations = len(temperatures) * len(slit_lengths) * len(mu_range_N2_kelvin) * len(mu_range_CO2_kelvin)
+                    print(f"Will minimise {total_calculations} slits.")
+                    print('')
 
                 ID = generate_ID(number)
-                print(f"Running slit_{ID}")
+                print(f"Running slit_{ID}.")
 
                 calculate_slit_profile(
                         muX_kelvin, muC_kelvin,
@@ -441,4 +447,6 @@ for T in temperatures:
                     writer = csv.writer(f)
                     writer.writerow([ID,T,H,muX_kelvin,muC_kelvin,epsilon_X_kJpermol,epsilon_C_kJpermol,sigma_X,sigma_C,dx,vacuum,initial_guess])
 
+                print("Current time:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                print('')
                 number += 1
