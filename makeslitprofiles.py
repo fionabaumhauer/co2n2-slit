@@ -387,7 +387,7 @@ model_C = keras.models.load_model(modelC_path)
 
 dx = 0.02
 
-temperatures = [200,250, 250, 300, 310, 320, 350, 400]
+temperatures = [200, 250, 300, 310, 320, 350, 400]
 slit_lengths = [10, 15, 20, 25, 30, 35, 50, 75, 100]
 
 mu_range_CO2_kelvin = [-1800, -2150, -1800, -1450, -1100, -750]
